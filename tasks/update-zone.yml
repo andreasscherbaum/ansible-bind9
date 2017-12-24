@@ -1,0 +1,189 @@
+---
+
+# update a zone file and upload it
+
+# the full directory and filename of the local zone file
+- debug: msg="Zone file{{':'}} {{ zone_file }}"
+
+# assume the zone is not changed
+- name: assume that zone is not yet changed
+  set_fact:
+    zone_changed: False
+
+
+# extract the filename from the directory
+- name: basename for zone file
+  set_fact:
+    zone_name: "{{ zone_file | basename | regex_replace('.zone$') }}"
+
+
+- debug: msg="Zone name{{':'}} {{ zone_name }}"
+
+
+# create a hashsum of the local file
+- name: create hashsum for zone file
+  local_action: stat path="{{ zone_file }}" checksum_algorithm=sha256 get_md5=no mime=no
+  become: no
+  register: zone_file_hash
+
+
+#- debug: msg="Zone hash{{':'}} {{ zone_file_hash.stat.checksum }}"
+
+
+# filename which stores the old checksum
+- name: hashsum filename
+  set_fact:
+    zone_old_hash_file: "{{ role_path }}/files/zone-data/{{ zone_name }}.hash"
+
+
+# read the stat of the hash file, see if it exists
+- name: check if an old hash exist
+  local_action: stat path="{{ zone_old_hash_file }}"
+  become: no
+  register: zone_old_hash_file_stat
+
+
+- block:
+  # read in old hashsum
+  - name: read old hashsum for zone file
+    set_fact:
+      zone_old_hash: "{{ lookup('file', '{{ zone_old_hash_file }}') }}"
+
+  #- debug: msg="Zone hash{{':'}} {{ zone_old_hash }}"
+
+
+  - name: compare hashsums
+    set_fact:
+      zone_changed: True
+    when: zone_old_hash != zone_file_hash.stat.checksum
+
+  when: zone_old_hash_file_stat.stat.exists == True
+
+
+- block:
+  # when the file with the old hashsum does not exist, the zone is new
+  - name: zone has no old hash - zone is changed
+    set_fact:
+      zone_changed: True
+
+  when: zone_old_hash_file_stat.stat.exists == False
+
+
+# filename which stores the old serial
+- name: serial filename
+  set_fact:
+    zone_old_serial_file: "{{ role_path }}/files/zone-data/{{ zone_name }}.serial"
+
+
+- block:
+#  - debug: msg="Zone has changed{{':'}} {{ zone_changed }}"
+
+  # read the stat of the serial file, see if it exists
+  - name: check if an old serial file exist
+    local_action: stat path="{{ zone_old_serial_file }}"
+    become: no
+    register: zone_old_serial_file_stat
+
+
+  # when the file does not exist, create one with the current date and serial "00"
+  # (will be increased in the next step)
+  - name: create serial file
+    local_action: copy content="{{ ansible_date_time.year }}{{ ansible_date_time.month }}{{ ansible_date_time.day }}00" dest="{{ role_path }}/files/zone-data/{{ zone_name }}.serial"
+    become: no
+    when: zone_old_serial_file_stat.stat.exists == False
+
+
+  # by now, the file exists, read it
+  - name: read serial from file
+    set_fact:
+      zone_serial: "{{ lookup('file', '{{ zone_old_serial_file }}') }}"
+
+
+  # split into date and serial
+  #- debug: msg="Zone serial{{':'}} {{ zone_serial[0:8] }}"
+  #- debug: msg="Zone serial{{':'}} {{ zone_serial[8:10] }}"
+  - name: split into date
+    set_fact:
+      zone_serial_date: "{{ zone_serial[0:8] }}"
+
+  - name: split into counter
+    set_fact:
+      #zone_serial_counter: "99"
+      zone_serial_counter: "{{ zone_serial[8:10] }}"
+
+  #- debug: msg="Zone serial date{{':'}} {{ zone_serial_date }}"
+  #- debug: msg="Zone serial counter{{':'}} {{ zone_serial_counter }}"
+
+
+  # compare date with current date
+  - name: current date
+    set_fact:
+      zone_current_date: "{{ ansible_date_time.year }}{{ ansible_date_time.month }}{{ ansible_date_time.day }}"
+
+  - debug: msg="Current date{{':'}} {{ zone_current_date }}"
+
+
+  # if it's the current date, increase the serial
+  - block:
+    - name: verify that the counter does not overflow
+      fail: msg="Zone counter is already at limit (99 changes per day)!"
+      when: zone_serial_counter == "99"
+
+    - name: increase serial counter
+      set_fact:
+        zone_serial_counter: "{{ '%02d'|format(zone_serial_counter|int + 1) }}"
+
+    #- debug: msg="Zone serial counter{{':'}} {{ zone_serial_counter }}"
+    when: zone_current_date == zone_serial_date
+
+
+  # if it's not the current date, set the new date, and reset the serial
+  - block:
+    - name: set new counter
+      set_fact:
+        zone_serial_counter: "01"
+
+    # change this fact last, will affect the block "when"
+    - name: set new date
+      set_fact:
+        zone_serial_date: "{{ ansible_date_time.year }}{{ ansible_date_time.month }}{{ ansible_date_time.day }}"
+
+    when: zone_current_date != zone_serial_date
+
+
+  #- debug: msg="Zone serial date{{':'}} {{ zone_serial_date }}"
+  #- debug: msg="Zone serial counter{{':'}} {{ zone_serial_counter }}"
+
+
+  # write back new serial to file
+  - name: write new serial to file
+    local_action: copy content="{{ zone_serial_date }}{{ zone_serial_counter }}" dest="{{ zone_old_serial_file }}"
+    become: no
+
+
+  # write back new checksum to file
+  - name: write new hash to hashsum cache file
+    local_action: copy content="{{ zone_file_hash.stat.checksum }}" dest="{{ zone_old_hash_file }}"
+    become: no
+
+
+  when: zone_changed == True
+
+
+
+# upload file
+- name: read serial from file
+  set_fact:
+    zone_serial: "{{ lookup('file', '{{ zone_old_serial_file }}') }}"
+
+- debug: msg="Zone serial{{':'}} {{ zone_serial }}"
+
+
+- name: upload zone
+  template:
+    src: "{{ zone_file }}"
+    dest: "/etc/bind/"
+    owner: bind
+    group: bind
+    mode: 0640
+

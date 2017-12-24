@@ -1,0 +1,6 @@
+files/named.conf.local
+files/named.conf.options
+files/keys/*.key
+files/zones/*.zone
+files/zone-data/*.hash
+files/zone-data/*.serial

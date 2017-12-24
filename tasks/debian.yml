@@ -1,0 +1,163 @@
+---
+
+# fail if it's not a Debian based system
+- name: Check OS (bind9)
+  fail: msg="Not a Debian based system!"
+  when: ansible_distribution != 'Debian' and ansible_distribution != 'Ubuntu'
+
+
+# the following code is for debugging zone updates (quickly)
+
+#- debug: msg="{{bind_key_files}}"
+#- debug: msg="{{bind_key_items.results}}"
+#
+#- name:
+#  #- debug: msg="{{ item }}"
+#  include: "{{ role_path }}/tasks/update-zone.yml zone_file={{ item }}"
+##  with_items: bind_key_files
+#  with_fileglob:
+#    - "{{ role_path }}/files/zones/*.zone"
+#- fail: msg="Stop"
+
+
+
+# update package cache - required for any new software installation
+- name: Update apt cache
+  apt: update_cache=yes
+  changed_when: false
+
+
+# install bind9 packages (Debian/Ubuntu)
+- name: basic packages
+  apt: name={{ item }} state=present
+  with_items:
+    - bind9
+    - bind9-host
+    - bind9utils
+
+
+- name: check if logfile already exists
+  stat:
+    path: /var/log/bind.log
+  register: bind9_logfile
+
+
+- name: create bind9 logfile
+  file:
+    path: /var/log/bind.log
+    owner: bind
+    group: bind
+    mode: 0640
+    state: '{{ "file" if bind9_logfile.stat.exists else "touch" }}'
+
+
+- name: /etc/apparmor.d/local/usr.sbin.named
+  copy:
+    src: "{{ role_path }}/files/apparmor_usr.sbin.named"
+    dest: /etc/apparmor.d/local/usr.sbin.named
+    owner: root
+    group: root
+    mode: 0644
+  notify:
+    - reload apparmor bind9 profile
+    - reload bind9
+
+
+- name: create directory for dynamic updates
+  file:
+    path: /etc/bind/dynamic-updates
+    state: directory
+    owner: bind
+    group: bind
+    mode: 0700
+
+
+- name: check if local copy of named.conf.options exists
+  become: no
+  local_action: stat path="{{ role_path }}/files/named.conf.options"
+  register: named_conf_options_exists
+
+
+- block:
+  # this block just emits a note that a local named.conf.options is missing
+  - name: /etc/bind/named.conf.options does not exist
+    debug: msg="Create {{ role_path }}/files/named.conf.options first!"
+
+
+  - name: Create named.conf.options from template
+    debug: msg="You can use {{ role_path }}/files/named.conf.options.template as template"
+
+
+  - name: Stop here because no local named.conf.options exists
+    fail: msg="Please provide local named.conf.options first"
+
+  when: named_conf_options_exists.stat.exists == False
+
+
+- name: /etc/bind/named.conf.options
+  copy:
+    src: "{{ role_path }}/files/named.conf.options"
+    dest: /etc/bind/named.conf.options
+    owner: root
+    group: root
+    mode: 0644
+  notify:
+    - reload bind9
+
+
+- name: check if local copy of named.conf.local exists
+  become: no
+  local_action: stat path="{{ role_path }}/files/named.conf.local"
+  register: named_conf_local_exists
+
+
+- block:
+  # this block just emits a note that a local named.conf.local is missing
+  - name: /etc/bind/named.conf.local does not exist
+    debug: msg="Create {{ role_path }}/files/named.conf.local first!"
+
+
+  - name: Create named.conf.local from template
+    debug: msg="You can use {{ role_path }}/files/named.conf.local.template as template"
+
+
+  - name: Stop here because no local named.conf.local exists
+    fail: msg="Please provide local named.conf.local first"
+
+  when: named_conf_local_exists.stat.exists == False
+
+
+- name: /etc/bind/named.conf.local
+  copy:
+    src: "{{ role_path }}/files/named.conf.local"
+    dest: /etc/bind/named.conf.local
+    owner: root
+    group: root
+    mode: 0644
+  notify:
+    - reload bind9
+
+
+- name: copy bind keys
+  copy:
+    src: "{{ item }}"
+    dest: /etc/bind/
+    owner: bind
+    group: bind
+    mode: 0640
+  with_fileglob:
+    - "{{ role_path }}/files/keys/*.key"
+  notify:
+    - reload bind9
+
+
+- name: copy bind zones
+  include: "{{ role_path }}/tasks/update-zone.yml zone_file={{ item }}"
+  with_fileglob:
+    - "{{ role_path }}/files/zones/*.zone"
+  notify:
+    - reload bind9
+
+
+
+- meta: flush_handlers

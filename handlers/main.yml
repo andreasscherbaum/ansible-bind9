@@ -1,0 +1,10 @@
+---
+
+# handlers are always executed in the order in which they are written in the handlers list/file
+
+- name: reload apparmor bind9 profile
+  shell: /sbin/apparmor_parser -r /etc/apparmor.d/usr.sbin.named
+
+
+- name: reload bind9
+  service: name=bind9 state=reloaded
