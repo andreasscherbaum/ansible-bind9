@@ -105,6 +105,9 @@
     - reload bind9
 
 
+- meta: flush_handlers
+
+
 - name: check if local copy of named.conf.local exists
   become: no
   local_action: stat path="{{ role_path }}/files/named.conf.local"
@@ -136,6 +139,9 @@
     mode: 0644
   notify:
     - reload bind9
+
+
+- meta: flush_handlers
 
 
 - name: copy bind keys

@@ -186,4 +186,6 @@
     owner: bind
     group: bind
     mode: 0640
+  notify:
+    - reload bind9
 
