@@ -20,6 +20,45 @@
 #- fail: msg="Stop"
 
 
+- name: check if data directory for local bind9 data exists
+  become: no
+  local_action: stat path="{{ bind9_data }}"
+  register: bind9_data_exists
+
+- name: Stop here because no local data directory exists
+  fail: msg="Please create a local data directory first ({{ bind9_data }})"
+  when: bind9_data_exists.stat.exists == False or bind9_data_exists.stat.isdir == False
+
+
+- name: check if keys directory for local bind9 data exists
+  become: no
+  local_action: stat path="{{ bind9_data }}/keys"
+  register: bind9_data_keys_exists
+
+- name: Stop here because no local keys directory exists
+  fail: msg="Please create a local keys directory first ({{ bind9_data }}/keys)"
+  when: bind9_data_keys_exists.stat.exists == False or bind9_data_keys_exists.stat.isdir == False
+
+
+- name: check if zones directory for local bind9 data exists
+  become: no
+  local_action: stat path="{{ bind9_data }}/zones"
+  register: bind9_data_zones_exists
+
+- name: Stop here because no local zones directory exists
+  fail: msg="Please create a local zones directory first ({{ bind9_data }}/zones)"
+  when: bind9_data_zones_exists.stat.exists == False or bind9_data_zones_exists.stat.isdir == False
+
+
+- name: check if zone-data directory for local bind9 data exists
+  become: no
+  local_action: stat path="{{ bind9_data }}/zone-data"
+  register: bind9_data_zone_data_exists
+
+- name: Stop here because no local zone-data directory exists
+  fail: msg="Please create a local zone-data directory first ({{ bind9_data }}/zone-data)"
+  when: bind9_data_zone_data_exists.stat.exists == False or bind9_data_zone_data_exists.stat.isdir == False
+
 
 # update package cache - required for any new software installation
 - name: Update apt cache
@@ -74,14 +113,14 @@
 
 - name: check if local copy of named.conf.options exists
   become: no
-  local_action: stat path="{{ role_path }}/files/named.conf.options"
+  local_action: stat path="{{ bind9_data }}/named.conf.options"
   register: named_conf_options_exists
 
 
 - block:
   # this block just emits a note that a local named.conf.options is missing
   - name: /etc/bind/named.conf.options does not exist
-    debug: msg="Create {{ role_path }}/files/named.conf.options first!"
+    debug: msg="Create {{ bind9_data }}/named.conf.options first!"
 
 
   - name: Create named.conf.options from template
@@ -96,7 +135,7 @@
 
 - name: /etc/bind/named.conf.options
   copy:
-    src: "{{ role_path }}/files/named.conf.options"
+    src: "{{ bind9_data }}/named.conf.options"
     dest: /etc/bind/named.conf.options
     owner: root
     group: root
@@ -107,14 +146,14 @@
 
 - name: check if local copy of named.conf.local exists
   become: no
-  local_action: stat path="{{ role_path }}/files/named.conf.local"
+  local_action: stat path="{{ bind9_data }}/named.conf.local"
   register: named_conf_local_exists
 
 
 - block:
   # this block just emits a note that a local named.conf.local is missing
   - name: /etc/bind/named.conf.local does not exist
-    debug: msg="Create {{ role_path }}/files/named.conf.local first!"
+    debug: msg="Create {{ bind9_data }}/named.conf.local first!"
 
 
   - name: Create named.conf.local from template
@@ -129,7 +168,7 @@
 
 - name: /etc/bind/named.conf.local
   copy:
-    src: "{{ role_path }}/files/named.conf.local"
+    src: "{{ bind9_data }}/named.conf.local"
     dest: /etc/bind/named.conf.local
     owner: root
     group: root
@@ -146,7 +185,7 @@
     group: bind
     mode: 0640
   with_fileglob:
-    - "{{ role_path }}/files/keys/*.key"
+    - "{{ bind9_data }}/keys/*.key"
   notify:
     - reload bind9
 
@@ -154,7 +193,7 @@
 - name: copy bind zones
   include: "{{ role_path }}/tasks/update-zone.yml zone_file={{ item }}"
   with_fileglob:
-    - "{{ role_path }}/files/zones/*.zone"
+    - "{{ bind9_data }}/zones/*.zone"
   notify:
     - reload bind9
 

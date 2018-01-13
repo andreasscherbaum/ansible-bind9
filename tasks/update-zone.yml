@@ -33,7 +33,7 @@
 # filename which stores the old checksum
 - name: hashsum filename
   set_fact:
-    zone_old_hash_file: "{{ role_path }}/files/zone-data/{{ zone_name }}.hash"
+    zone_old_hash_file: "{{ bind9_data }}/zone-data/{{ zone_name }}.hash"
 
 
 # read the stat of the hash file, see if it exists
@@ -72,7 +72,7 @@
 # filename which stores the old serial
 - name: serial filename
   set_fact:
-    zone_old_serial_file: "{{ role_path }}/files/zone-data/{{ zone_name }}.serial"
+    zone_old_serial_file: "{{ bind9_data }}/zone-data/{{ zone_name }}.serial"
 
 
 - block:
