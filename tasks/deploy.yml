@@ -7,7 +7,7 @@
 # You must specify $bind9_data
 
 - name: /etc/bind/named.conf.options
-  copy:
+  template:
     src: "{{ bind9_data }}/named.conf.options"
     dest: /etc/bind/named.conf.options
     owner: root
@@ -18,7 +18,7 @@
 
 
 - name: /etc/bind/named.conf.local
-  copy:
+  template:
     src: "{{ bind9_data }}/named.conf.local"
     dest: /etc/bind/named.conf.local
     owner: root
@@ -29,7 +29,7 @@
 
 
 - name: copy bind keys
-  copy:
+  template:
     src: "{{ item }}"
     dest: /etc/bind/
     owner: bind
