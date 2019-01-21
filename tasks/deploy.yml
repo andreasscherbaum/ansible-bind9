@@ -40,9 +40,8 @@
   notify:
     - reload bind9
 
-
 - name: copy bind zones
-  include: "{{ role_path }}/tasks/update-zone.yml zone_file={{ item }}"
+  include: "{{ playbook_dir }}/roles/bind9/tasks/update-zone.yml zone_file={{ item }}"
   with_fileglob:
     - "{{ bind9_data }}/zones/*.zone"
   notify:
