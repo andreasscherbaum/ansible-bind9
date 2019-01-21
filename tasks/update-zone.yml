@@ -3,7 +3,8 @@
 # update a zone file and upload it
 
 # the full directory and filename of the local zone file
-- debug: msg="Zone file{{':'}} {{ zone_file }}"
+- debug:
+    msg: "Zone file{{':'}} {{ zone_file }}"
 
 # assume the zone is not changed
 - name: assume that zone is not yet changed
@@ -17,12 +18,18 @@
     zone_name: "{{ zone_file | basename | regex_replace('.zone$') }}"
 
 
-- debug: msg="Zone name{{':'}} {{ zone_name }}"
+- debug:
+    msg: "Zone name{{':'}} {{ zone_name }}"
 
 
 # create a hashsum of the local file
 - name: create hashsum for zone file
-  local_action: stat path="{{ zone_file }}" checksum_algorithm=sha256 get_md5=no mime=no
+  local_action:
+    module: stat
+    path: "{{ zone_file }}"
+    checksum_algorithm: sha256
+    get_md5: no
+    mime: no
   become: no
   register: zone_file_hash
 
@@ -38,7 +45,9 @@
 
 # read the stat of the hash file, see if it exists
 - name: check if an old hash exist
-  local_action: stat path="{{ zone_old_hash_file }}"
+  local_action:
+    module: stat
+    path: "{{ zone_old_hash_file }}"
   become: no
   register: zone_old_hash_file_stat
 
@@ -80,7 +89,9 @@
 
   # read the stat of the serial file, see if it exists
   - name: check if an old serial file exist
-    local_action: stat path="{{ zone_old_serial_file }}"
+    local_action:
+      module: stat
+      path: "{{ zone_old_serial_file }}"
     become: no
     register: zone_old_serial_file_stat
 
@@ -88,7 +99,10 @@
   # when the file does not exist, create one with the current date and serial "00"
   # (will be increased in the next step)
   - name: create serial file
-    local_action: copy content="{{ ansible_date_time.year }}{{ ansible_date_time.month }}{{ ansible_date_time.day }}00" dest="{{ role_path }}/files/zone-data/{{ zone_name }}.serial"
+    local_action:
+      module: copy
+      content: "{{ ansible_date_time.year }}{{ ansible_date_time.month }}{{ ansible_date_time.day }}00"
+      dest: "{{ role_path }}/files/zone-data/{{ zone_name }}.serial"
     become: no
     when: zone_old_serial_file_stat.stat.exists == False
 
@@ -126,7 +140,8 @@
   # if it's the current date, increase the serial
   - block:
     - name: verify that the counter does not overflow
-      fail: msg="Zone counter is already at limit (99 changes per day)!"
+      fail:
+        msg: "Zone counter is already at limit (99 changes per day)!"
       when: zone_serial_counter == "99"
 
     - name: increase serial counter
@@ -157,13 +172,19 @@
 
   # write back new serial to file
   - name: write new serial to file
-    local_action: copy content="{{ zone_serial_date }}{{ zone_serial_counter }}" dest="{{ zone_old_serial_file }}"
+    local_action:
+      module: copy
+      content: "{{ zone_serial_date }}{{ zone_serial_counter }}"
+      dest: "{{ zone_old_serial_file }}"
     become: no
 
 
   # write back new checksum to file
   - name: write new hash to hashsum cache file
-    local_action: copy content="{{ zone_file_hash.stat.checksum }}" dest="{{ zone_old_hash_file }}"
+    local_action:
+      module: copy
+      content: "{{ zone_file_hash.stat.checksum }}"
+      dest: "{{ zone_old_hash_file }}"
     become: no
 
 
@@ -186,6 +207,11 @@
     owner: bind
     group: bind
     mode: 0640
-  notify:
-    - reload bind9
+  register: zone_uploaded
 
+
+- name: reload bind9
+  service:
+    name: bind9
+    state: reloaded
+  when: zone_uploaded.changed or zone_changed == True
