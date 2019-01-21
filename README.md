@@ -31,6 +31,45 @@ chmod 0700 bind9-data
 ```
 
 
+## Role handling and deployment
+
+Installing the role will verify that certain directories exist locally (in $bind9_data), and will install and configure Bind 9 on the server.
+
+It will not deploy the configuration and the zones.
+
+### Using the role
+
+```
+- hosts: dns
+  become: yes
+  gather_facts: True
+  any_errors_fatal: True
+  force_handlers: True
+  vars:
+    bind9_data: "{{ playbook_dir }}/bind9-data"
+  roles:
+    - role: bind9
+```
+
+### Deploy configuration and zones
+
+```
+- hosts: dns
+  become: yes
+  gather_facts: True
+  any_errors_fatal: True
+  force_handlers: True
+  vars:
+    bind9_data: "{{ playbook_dir }}/bind9-data"
+
+  tasks:
+
+    - name: Deploy configuration and zones
+      include: roles/bind9/tasks/deploy.yml
+```
+
+
+
 ## Serial handling
 
 You can handle the serial number in a zone as you like - if you include a variable {{ zone_serial }}, this variable will he handled by the Playbook.
