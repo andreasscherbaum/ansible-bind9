@@ -1,5 +1,11 @@
 ---
 
+# Note: this role does not actually deploy files
+#       in order to do that, execute the "deploy.yml" Playbook in the same directory
+#
+# You must specify $bind9_data
+
+
 # fail if it's not a Debian based system
 - name: Check OS (bind9)
   fail: msg="Not a Debian based system!"
@@ -133,17 +139,6 @@
   when: named_conf_options_exists.stat.exists == False
 
 
-- name: /etc/bind/named.conf.options
-  copy:
-    src: "{{ bind9_data }}/named.conf.options"
-    dest: /etc/bind/named.conf.options
-    owner: root
-    group: root
-    mode: 0644
-  notify:
-    - reload bind9
-
-
 - name: check if local copy of named.conf.local exists
   become: no
   local_action: stat path="{{ bind9_data }}/named.conf.local"
@@ -164,38 +159,6 @@
     fail: msg="Please provide local named.conf.local first"
 
   when: named_conf_local_exists.stat.exists == False
-
-
-- name: /etc/bind/named.conf.local
-  copy:
-    src: "{{ bind9_data }}/named.conf.local"
-    dest: /etc/bind/named.conf.local
-    owner: root
-    group: root
-    mode: 0644
-  notify:
-    - reload bind9
-
-
-- name: copy bind keys
-  copy:
-    src: "{{ item }}"
-    dest: /etc/bind/
-    owner: bind
-    group: bind
-    mode: 0640
-  with_fileglob:
-    - "{{ bind9_data }}/keys/*.key"
-  notify:
-    - reload bind9
-
-
-- name: copy bind zones
-  include: "{{ role_path }}/tasks/update-zone.yml zone_file={{ item }}"
-  with_fileglob:
-    - "{{ bind9_data }}/zones/*.zone"
-  notify:
-    - reload bind9
 
 
 

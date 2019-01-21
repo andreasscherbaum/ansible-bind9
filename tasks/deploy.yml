@@ -1,0 +1,53 @@
+---
+
+# Note: this Playbook deploys the actual configuration files,
+#       and the zones
+#       it can be used outside of the role as well
+#
+# You must specify $bind9_data
+
+- name: /etc/bind/named.conf.options
+  copy:
+    src: "{{ bind9_data }}/named.conf.options"
+    dest: /etc/bind/named.conf.options
+    owner: root
+    group: root
+    mode: 0644
+  notify:
+    - reload bind9
+
+
+- name: /etc/bind/named.conf.local
+  copy:
+    src: "{{ bind9_data }}/named.conf.local"
+    dest: /etc/bind/named.conf.local
+    owner: root
+    group: root
+    mode: 0644
+  notify:
+    - reload bind9
+
+
+- name: copy bind keys
+  copy:
+    src: "{{ item }}"
+    dest: /etc/bind/
+    owner: bind
+    group: bind
+    mode: 0640
+  with_fileglob:
+    - "{{ bind9_data }}/keys/*.key"
+  notify:
+    - reload bind9
+
+
+- name: copy bind zones
+  include: "{{ role_path }}/tasks/update-zone.yml zone_file={{ item }}"
+  with_fileglob:
+    - "{{ bind9_data }}/zones/*.zone"
+  notify:
+    - reload bind9
+
+
+
+- meta: flush_handlers
