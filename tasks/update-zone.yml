@@ -188,6 +188,10 @@
     become: no
 
 
+  - name: Add zone to debug information
+    set_fact:
+      changed_zones: "{{ changed_zones }} + [ '{{ zone_name }}' ]"
+
   when: zone_changed == True
 
 
