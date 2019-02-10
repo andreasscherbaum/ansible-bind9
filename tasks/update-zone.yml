@@ -102,7 +102,7 @@
     local_action:
       module: copy
       content: "{{ ansible_date_time.year }}{{ ansible_date_time.month }}{{ ansible_date_time.day }}00"
-      dest: "{{ role_path }}/files/zone-data/{{ zone_name }}.serial"
+      dest: "{{ bind9_data }}/zone-data/{{ zone_name }}.serial"
     become: no
     when: zone_old_serial_file_stat.stat.exists == False
 
