@@ -66,6 +66,10 @@ It will not deploy the configuration and the zones.
 
     - name: Deploy configuration and zones
       include: roles/bind9/tasks/deploy.yml
+
+  handlers:
+
+    - include: roles/bind9/handlers/main.yml
 ```
 
 
