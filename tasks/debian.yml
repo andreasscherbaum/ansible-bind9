@@ -68,7 +68,8 @@
 
 # update package cache - required for any new software installation
 - name: Update apt cache
-  apt: update_cache=yes
+  apt:
+    update_cache: yes
   changed_when: false
 
 
