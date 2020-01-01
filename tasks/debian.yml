@@ -76,6 +76,7 @@
 - name: basic packages
   apt: name={{ item }} state=present
   with_items:
+    - aptitude
     - bind9
     - bind9-host
     - bind9utils
