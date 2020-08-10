@@ -48,11 +48,42 @@
 
 
 - name: copy bind zones
-  include: "{{ playbook_dir }}/roles/bind9/tasks/update-zone.yml zone_file={{ item }}"
+  include: "{{ playbook_dir }}/roles/bind9/tasks/update-zone.yml zone_file={{ item }} bind_target_dir=/etc/bind/"
   with_fileglob:
     - "{{ bind9_data }}/zones/*.zone"
   notify:
     - reload bind9
+
+
+# deploy dynamic zones - only if the local directory exists
+- name: Check if local directory for dynamic zones exists
+  local_action:
+    module: stat
+    path: "{{ bind9_data }}/dynamic-zones/"
+    get_md5: no
+    mime: no
+  become: no
+  register: dynamic_zones
+
+
+- block:
+  - name: Create dynamic-updates directory
+    file:
+      path: "/etc/bind/dynamic-updates"
+      state: directory
+      owner: bind
+      group: bind
+      mode: 0770
+
+
+  - name: copy dynamic bind zones
+    include: "{{ playbook_dir }}/roles/bind9/tasks/update-dynamic-zone.yml dynamic_zone_file={{ item }}"
+    with_fileglob:
+      - "{{ bind9_data }}/dynamic-zones/*.zone"
+    notify:
+      - reload bind9
+
+  when: dynamic_zones.stat.exists == True
 
 
 - name: Show list of changed zones

@@ -1,0 +1,47 @@
+---
+
+# install a dynamic zone if it does not yet exist
+# fetch back a dynamic zone if it already exists on the server
+
+
+# the full directory and filename of the local dynamic zone file
+- debug:
+    msg: "Dynamic zone file{{':'}} {{ dynamic_zone_file }}"
+
+# assume the zone is not changed
+- name: assume that dynamic zone is not yet changed
+  set_fact:
+    dynamic_zone_changed: False
+
+
+# extract the filename from the directory
+- name: basename for dynamic zone file
+  set_fact:
+    dynamic_zone_name: "{{ dynamic_zone_file | basename | regex_replace('.zone$') }}"
+
+
+- debug:
+    msg: "Dynamic zone name{{':'}} {{ dynamic_zone_name }}"
+
+
+- name: copy dynamic zone
+  include: "{{ playbook_dir }}/roles/bind9/tasks/update-zone.yml zone_file={{ dynamic_zone_file }} bind_target_dir=/etc/bind/dynamic-updates/"
+  notify:
+    - reload bind9
+
+
+- name: Stat dynamic zone file on remote host
+  stat:
+    path: "/etc/bind/dynamic-updates/{{ dynamic_zone_name }}.zone.jnl"
+  register: remote_dynamic_zone_stat
+
+
+- block:
+  - name: Fetch dynamic zone .jnl file
+    fetch:
+      src: "/etc/bind/dynamic-updates/{{ dynamic_zone_name }}.zone.jnl"
+      dest: "{{ bind9_data }}/dynamic-zones/{{ dynamic_zone_name }}.zone.jnl"
+      flat: yes
+      backup: yes
+
+  when: remote_dynamic_zone_stat.stat.exists == True

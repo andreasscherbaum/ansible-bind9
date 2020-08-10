@@ -207,7 +207,7 @@
 - name: upload zone
   template:
     src: "{{ zone_file }}"
-    dest: "/etc/bind/"
+    dest: "{{ bind_target_dir }}"
     owner: bind
     group: bind
     mode: 0640
