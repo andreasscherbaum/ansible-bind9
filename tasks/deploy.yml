@@ -88,7 +88,6 @@
 
 - name: Show list of changed zones
   debug: msg="{{ changed_zones | list | unique }}"
-  run_once: true
 
 
 
