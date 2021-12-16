@@ -2,3 +2,4 @@
 # For more details, please see /etc/apparmor.d/local/README.
 
 /var/log/bind.log rw,
+/etc/bind/dynamic-updates/* rw,
